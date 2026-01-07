@@ -29,6 +29,7 @@ SecureDose helps families and care teams prevent missed doses and confirm medica
 The Caretaker Dashboard lists all assigned patients and quick actions.
 
 - Scan QR: opens the scanner to verify a medication dose.
+- Generate QR: creates a printable QR code for a medication schedule.
 - Link Family: connect a family member to a patient by email.
 
 ### Scan and Verify a Dose
@@ -38,6 +39,16 @@ The Caretaker Dashboard lists all assigned patients and quick actions.
 3. Wait for “Verified!” confirmation.
 
 Result: The verification event is recorded for the dose.
+
+### Generate a QR Code
+
+1. Tap "Generate QR".
+2. Select a patient.
+3. Select a medication schedule.
+4. Tap "Generate QR Code".
+5. Tap "Save QR" to store it in Photos.
+
+Result: You can print the saved QR image and attach it to the medication.
 
 ### Link a Family Member
 
