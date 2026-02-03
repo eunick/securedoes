@@ -15,7 +15,7 @@ SecureDose helps improve medication adherence through:
 - React 18 + TypeScript
 - Vite (build tool)
 - Capacitor (native wrapper)
-- Tailwind CSS + shadcn/ui
+- Tailwind CSS
 - Zustand (state management)
 - Dexie (offline storage)
 
@@ -27,7 +27,7 @@ SecureDose helps improve medication adherence through:
 
 ### Mobile Features
 - QR code scanning (`@capacitor-community/barcode-scanner`)
-- Local notifications (`@capacitor/local-notifications`)
+- Local notifications with custom sounds (`@capacitor/local-notifications`)
 - Text-to-speech (`@capacitor/text-to-speech`)
 - Offline support (IndexedDB)
 
@@ -37,7 +37,18 @@ SecureDose helps improve medication adherence through:
 securedose/
 ├── apps/
 │   ├── mobile/          # Capacitor mobile app
+│   │   ├── src/
+│   │   │   ├── screens/     # UI screens (by role)
+│   │   │   ├── services/    # Business logic
+│   │   │   ├── store/       # State management
+│   │   │   └── components/  # Reusable UI
+│   │   └── android/         # Android native project
 │   └── backend/         # Cloudflare Workers API
+│       ├── src/
+│       │   ├── routes/      # API endpoints
+│       │   ├── services/    # Business logic
+│       │   ├── middleware/  # Auth, rate limiting
+│       │   └── utils/       # Helpers
 ├── packages/
 │   ├── shared-types/    # TypeScript types
 │   └── db-schema/       # Database migrations
@@ -61,65 +72,101 @@ npm install
 cp .env.example .env
 # Edit .env with your configuration
 
-# Run database migrations
-cd packages/db-schema
-npm run migrate
-
 # Start development servers
 npm run dev
 ```
 
-### Mobile App Development
+### Development Commands
 
 ```bash
-# Start web dev server
-npm run mobile:dev
+# Start all dev servers (via Turborepo)
+npm run dev
 
-# Build and sync to Android
-npm run mobile:android
+# Mobile app only
+npm run mobile:dev          # Start web dev server (port 5173)
+npm run mobile:android      # Build and open in Android Studio
+
+# Backend only
+npm run backend:dev         # Start Wrangler dev server (port 8787)
+npm run backend:deploy      # Deploy to Cloudflare Workers
+
+# Testing
+npm run test                # Run all tests
+npm run lint                # Lint all packages
 ```
 
-### Backend Development
+### Building the APK
 
 ```bash
-# Start local Cloudflare Workers dev server
-npm run backend:dev
-
-# Deploy to Cloudflare
-npm run backend:deploy
+cd apps/mobile
+npm run build
+npx cap sync android
 ```
+
+Then either:
+- Open Android Studio: `npx cap open android` and build from there
+- Or use Gradle: `cd android && ./gradlew assembleDebug`
+
+The APK will be at: `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`
 
 ## Documentation
 
-- **[SESSION_HANDOFF.md](SESSION_HANDOFF.md)** - ⚠️ **READ THIS FIRST** - Critical continuity documentation
+### Getting Started
 - [Quick Start Guide](docs/QUICK_START.md) - Get up and running in 15 minutes
-- [Implementation Checklist](IMPLEMENTATION_CHECKLIST.md) - Track your progress
+- [User Guide](docs/USER_GUIDE.md) - How to use the app (all roles)
 
-## 📝 Important: Session Continuity
+### Architecture
+- [Frontend Architecture](docs/FRONTEND_ARCHITECTURE.md) - Mobile app overview
+- [Backend Architecture](docs/BACKEND_ARCHITECTURE.md) - API and database overview
+- [CLAUDE.md](CLAUDE.md) - AI assistant guidance for this codebase
 
-**If you're working on this project across multiple sessions:**
+### Development
+- [Implementation Checklist](IMPLEMENTATION_CHECKLIST.md) - Track development progress
+- [Debugging Log](docs/DEBUGGING_LOG.md) - Fixes and debugging history
+- [Session Handoff](SESSION_HANDOFF.md) - Session continuity notes
 
-1. **ALWAYS** read `SESSION_HANDOFF.md` at the start of each session
-2. **ALWAYS** update `SESSION_HANDOFF.md` before ending your session (especially if you might run out of tokens)
-3. Document what you completed, what's blocked, and what's next
+## Test Users
 
-This ensures you can pick up exactly where you left off, even if your session ends unexpectedly.
+All users have password: `TestPassword123!`
+
+| Role | Email | Name |
+|------|-------|------|
+| Caretaker | sarah.caretaker@test.com | Sarah Johnson |
+| Patient | john.patient@test.com | John Smith |
+| Family | emma.family@test.com | Emma Smith |
 
 ## Current Status
 
-This is a scaffolded project with:
-- ✅ Project structure and configuration
-- ✅ TypeScript types and data models
-- ✅ Database schema and migrations
-- ✅ Basic UI screens (all roles)
-- ✅ Service modules (QR scanner, notifications, storage)
-- ✅ Backend API skeleton (routes defined)
-- ⏳ Backend implementation (TODO)
-- ⏳ API integration (TODO)
-- ⏳ QR code generation (TODO)
-- ⏳ Notification triggers (TODO)
+### Completed
+- Project structure and configuration
+- TypeScript types and data models
+- Database schema and migrations
+- Basic UI screens (all roles)
+- QR scanner with camera permissions
+- Custom notification sounds (patient, caregiver dose, caregiver missed)
+- Backend API routes defined
+- APK build configuration
 
-See [SESSION_HANDOFF.md](SESSION_HANDOFF.md) for next steps.
+### In Progress
+- Backend route implementations
+- API integration with mobile app
+- QR code generation workflow
+- Push notification triggers
+
+## Environment Variables
+
+### Backend (Cloudflare Workers)
+```
+DATABASE_URL=postgresql://...
+JWT_SECRET=your-secret-key
+QR_SIGNING_SECRET=your-qr-secret
+FCM_SERVER_KEY=optional-for-push
+```
+
+### Mobile App
+```
+VITE_API_URL=http://localhost:8787
+```
 
 ## License
 
