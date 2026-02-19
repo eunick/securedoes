@@ -1,161 +1,194 @@
-# Quick Start Guide - SecureDose
+# SecureDose Quick Start Guide
 
-This guide will get you up and running with SecureDose in 15 minutes.
+Get SecureDose running in 15 minutes.
+
+---
 
 ## Prerequisites
 
-- Node.js 18+ installed
-- npm 9+ installed
-- PostgreSQL client (psql) installed
-- (Optional) Android Studio for mobile development
+- Node.js 18+
+- npm 9+
+- PostgreSQL client (`psql`) for database setup
+- (Optional) Android Studio for building the Android APK
+- (Optional) Java 17 for APK builds — `C:\Users\eunick\.jdks\ms-17.0.17`
 
-## Step 1: Clone and Install (2 min)
+---
+
+## Step 1 — Install Dependencies
 
 ```bash
 cd /path/to/SecureDose
 npm install
 ```
 
-This installs all dependencies for the monorepo.
+---
 
-## Step 2: Database Setup (5 min)
+## Step 2 — Database Setup
 
-### Create Neon Database
+### Create a Neon Database
 
-1. Go to https://neon.tech
-2. Sign up for free account
-3. Create new project called "securedose"
-4. Copy the connection string (looks like: `postgresql://user:pass@host.neon.tech:5432/dbname`)
+1. Go to [https://neon.tech](https://neon.tech) and sign up for a free account.
+2. Create a new project named "securedose".
+3. Copy the connection string (format: `postgresql://user:pass@host.neon.tech:5432/dbname`).
 
-### Run Migrations
+### Run All Migrations
 
 ```bash
-# Set your database URL
 export DATABASE_URL="postgresql://user:pass@host.neon.tech:5432/dbname"
 
-# Run migration
 cd packages/db-schema
 psql $DATABASE_URL < migrations/001_initial_schema.sql
+psql $DATABASE_URL < migrations/002_notification_read_at.sql
+psql $DATABASE_URL < migrations/003_refresh_tokens.sql
+psql $DATABASE_URL < migrations/004_admin_role.sql
+psql $DATABASE_URL < migrations/005_patient_fields.sql
 
 # Load test data
 psql $DATABASE_URL < seed.sql
 
-# Verify
+# Verify — should show 10+ tables
 psql $DATABASE_URL -c "\dt"
 ```
 
-You should see 10+ tables listed.
+---
 
-## Step 3: Configure Environment (2 min)
+## Step 3 — Configure Environment
+
+### Backend secrets
 
 ```bash
-# Copy example env file
-cp .env.example .env
+cd apps/backend
 
-# Edit .env and add:
-# - DATABASE_URL (from step 2)
-# - JWT_SECRET (generate random 32+ char string)
-# - QR_SIGNING_SECRET (generate random 32+ char string)
+# For local development — create .dev.vars (not committed to git)
+cat > .dev.vars <<EOF
+DATABASE_URL=postgresql://user:pass@host.neon.tech:5432/dbname
+JWT_SECRET=<your-32-char-random-string>
+QR_SIGNING_SECRET=<your-32-char-random-string>
+EOF
 ```
 
 Generate secrets:
 ```bash
-# On Linux/Mac
-openssl rand -hex 32
-
-# Or use this Node.js command
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## Step 4: Start Backend (2 min)
+### Mobile API URL
 
 ```bash
-cd apps/backend
-npm run dev
+# apps/mobile/.env
+VITE_API_URL=https://securedose-api.securedose.workers.dev
+# Or for local backend:
+# VITE_API_URL=http://localhost:8787
 ```
-
-Backend will start at `http://localhost:8787`
-
-Test it:
-```bash
-curl http://localhost:8787
-# Should return: {"service":"SecureDose API","version":"1.0.0",...}
-```
-
-## Step 5: Start Mobile App (2 min)
-
-Open new terminal:
-
-```bash
-cd apps/mobile
-npm run dev
-```
-
-App will open at `http://localhost:3000`
-
-## Step 6: Test Login (2 min)
-
-1. Open http://localhost:3000 in browser
-2. Click "Caretaker"
-3. Login with:
-   - Email: `sarah.caretaker@test.com`
-   - Password: `TestPassword123!`
-
-**Note:** Authentication is currently mocked. Backend implementation needed.
-
-## Step 7: (Optional) Build Android App
-
-### Install Capacitor
-
-```bash
-cd apps/mobile
-npx cap add android
-```
-
-### Build and Run
-
-```bash
-npm run build
-npx cap sync android
-npx cap open android
-```
-
-This opens Android Studio. Click "Run" button to install on emulator/device.
 
 ---
 
-## Test Users
+## Step 4 — Start the Backend (Local Dev)
 
-All users have password: `TestPassword123!`
+```bash
+npm run backend:dev
+# Starts at http://localhost:8787
+```
 
-| Role | Email | Name |
-|------|-------|------|
-| Caretaker | sarah.caretaker@test.com | Sarah Johnson |
-| Patient | john.patient@test.com | John Smith |
-| Family | emma.family@test.com | Emma Smith |
+Test:
+```bash
+curl http://localhost:8787
+# {"service":"SecureDose API","version":"1.0.0",...}
+```
+
+---
+
+## Step 5 — Start the Mobile App (Browser)
+
+```bash
+npm run mobile:dev
+# Opens at http://localhost:5173
+```
+
+---
+
+## Step 6 — Test Login
+
+Open `http://localhost:5173` in a browser.
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@test.com | TestPassword123! |
+| Caretaker | sarah.caretaker@test.com | TestPassword123! |
+| Patient | john.patient@test.com | TestPassword123! |
+| Family | emma.family@test.com | TestPassword123! |
+
+---
+
+## Step 7 — Deploy Backend to Cloudflare (Production)
+
+Run from **Windows CMD** (not WSL — Wrangler uses Windows binaries):
+
+```cmd
+cd C:\Users\eunick\Documents\SecureDose
+npm run backend:deploy
+```
+
+Set production secrets in Cloudflare (one-time):
+```cmd
+cd apps/backend
+npx wrangler secret put DATABASE_URL
+npx wrangler secret put JWT_SECRET
+npx wrangler secret put QR_SIGNING_SECRET
+```
+
+---
+
+## Step 8 — Build the Android APK
+
+Run all steps from **Windows CMD**:
+
+```cmd
+cd C:\Users\eunick\Documents\SecureDose
+
+REM Build web assets
+npm run build --workspace=apps/mobile
+
+REM Sync to Android project
+cd apps\mobile
+npx cap sync android
+
+REM Build APK
+set "JAVA_HOME=C:\Users\eunick\.jdks\ms-17.0.17"
+cd android
+gradlew.bat assembleDebug
+```
+
+APK output: `apps\mobile\android\app\build\outputs\apk\debug\app-debug.apk`
+
+> Android SDK build tools are Windows-only `.exe` binaries. This step must run in Windows CMD or PowerShell — it will fail in WSL.
 
 ---
 
 ## Project Structure
 
 ```
-securedose/
+SecureDose/
 ├── apps/
-│   ├── mobile/              # React + Capacitor app
+│   ├── mobile/              # React + Vite + Capacitor app
 │   │   ├── src/
-│   │   │   ├── screens/     # UI screens
-│   │   │   ├── services/    # Business logic
-│   │   │   └── store/       # State management
-│   │   └── capacitor.config.ts
+│   │   │   ├── screens/     # UI screens by role
+│   │   │   ├── services/    # api.ts, notifications, qrScanner
+│   │   │   ├── store/       # authStore (Zustand)
+│   │   │   ├── components/  # Button, Card, LoadingSpinner
+│   │   │   └── utils/       # generateMarPdf.ts
+│   │   └── android/         # Native Android project
 │   │
-│   └── backend/             # Cloudflare Workers API
+│   └── backend/             # Cloudflare Workers API (Hono)
 │       ├── src/
-│       │   └── routes/      # API endpoints
+│       │   ├── routes/      # auth, patients, schedules, verify, admin, ...
+│       │   ├── middleware/   # auth JWT, rate limiting
+│       │   └── utils/       # db, jwt, qr signing
 │       └── wrangler.toml
 │
 ├── packages/
-│   ├── shared-types/        # TypeScript types
-│   └── db-schema/           # Database migrations
+│   ├── shared-types/        # TypeScript types (shared)
+│   └── db-schema/           # Postgres migrations + seed
 │
 └── docs/                    # Documentation
 ```
@@ -164,105 +197,71 @@ securedose/
 
 ## Common Commands
 
-### Development
 ```bash
-# Start backend dev server
+# Start everything (Turborepo)
+npm run dev
+
+# Start backend only
 npm run backend:dev
 
-# Start mobile web dev server
+# Start mobile only
 npm run mobile:dev
 
-# Run mobile on Android
-npm run mobile:android
+# Deploy backend (from Windows CMD, monorepo root)
+npm run backend:deploy
+
+# Lint all
+npm run lint
+
+# Run tests (Vitest)
+npm run test
+npm run test --workspace=apps/backend
 ```
-
-### Database
-```bash
-# Connect to database
-psql $DATABASE_URL
-
-# View all tables
-\dt
-
-# View users
-SELECT email, role FROM users;
-
-# Reset database (CAUTION: deletes all data)
-psql $DATABASE_URL < migrations/001_initial_schema.sql
-psql $DATABASE_URL < seed.sql
-```
-
-### Building
-```bash
-# Build mobile app for production
-cd apps/mobile
-npm run build
-
-# Deploy backend to Cloudflare
-cd apps/backend
-npm run deploy
-```
-
----
-
-## Next Steps
-
-1. **Implement Backend Routes**
-   - Start with `apps/backend/src/routes/auth.ts`
-   - Add database queries using `postgres` library
-   - Implement JWT token generation
-
-2. **Connect Mobile to Backend**
-   - Update `VITE_API_URL` in `.env`
-   - Test API calls from mobile app
-
-3. **Implement QR Code Features**
-   - Generate QR codes in backend
-   - Test scanning in mobile app
-
-4. **Add Notifications**
-   - Schedule local notifications
-   - Test TTS voice reminders
-
-See [SESSION_HANDOFF.md](../SESSION_HANDOFF.md) for detailed implementation plan.
 
 ---
 
 ## Troubleshooting
 
+**PowerShell error: "cannot be loaded because running scripts is disabled"**
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+**`@rollup/rollup-win32-x64-msvc` missing:**
+```cmd
+npm install @rollup/rollup-win32-x64-msvc
+```
+
 **Database connection fails:**
-- Check `DATABASE_URL` is correct
-- Ensure Neon database is running
-- Verify IP allowlist in Neon dashboard
+- Check `DATABASE_URL` is correct.
+- Ensure Neon database is active (it may auto-suspend on free tier after inactivity).
+- Verify IP allowlist in Neon dashboard.
 
-**TypeScript errors:**
-```bash
-npm run typecheck
-```
-
-**Module not found errors:**
-```bash
-# Reinstall dependencies
-rm -rf node_modules
-npm install
-```
+**TypeScript errors in backend routes:**
+These are pre-existing Hono generic typing issues. They do not affect deployment. Do not attempt to fix globally.
 
 **Capacitor sync fails:**
 ```bash
 cd apps/mobile
-npx cap sync
+npx cap sync android
+```
+
+**Module not found errors:**
+```bash
+rm -rf node_modules
+npm install
 ```
 
 ---
 
-## Resources
+## Documentation
 
-- [Full Documentation](../README.md)
-- [Session Handoff](../SESSION_HANDOFF.md)
-- [Neon Docs](https://neon.tech/docs)
-- [Cloudflare Workers Docs](https://developers.cloudflare.com/workers)
-- [Capacitor Docs](https://capacitorjs.com/docs)
-
----
-
-**You're ready to start building! 🚀**
+| File | Contents |
+|------|----------|
+| `docs/BACKEND_ARCHITECTURE.md` | API routes, database schema, deployment |
+| `docs/FRONTEND_ARCHITECTURE.md` | Screen structure, routing, components |
+| `docs/USER_GUIDE.md` | How to use each role's features |
+| `docs/DEBUGGING_LOG.md` | Known bugs and fixes |
+| `docs/SESSION_LOG_2026-02-19.md` | Session log — initial build |
+| `docs/SESSION_LOG_2026-02-20.md` | Session log — bug fixes + caretaker dropdown |
+| `CLAUDE.md` | Project guidance for Claude Code |
