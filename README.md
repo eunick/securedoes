@@ -1,177 +1,237 @@
 # SecureDose
 
-A medication tracking and verification mobile application for patients with cognitive or mental health challenges, featuring QR code verification and multi-role support.
+A medication tracking and verification mobile application for patients with cognitive or mental health challenges. Features QR code dose verification, a 28-day eMAR chart, PDF export, and four user roles.
+
+**Live API:** `https://securedose-api.securedose.workers.dev`
+
+---
 
 ## Overview
 
-SecureDose helps improve medication adherence through:
-- **Caretaker Mode**: QR code verification of correct dosage
-- **Patient Mode**: Voice-assisted reminders and confirmations
-- **Family Mode**: Remote monitoring and notifications
+SecureDose improves medication adherence through a verified, role-based workflow:
+
+- **Admin** — manages all patients, caretakers, family members, and medications
+- **Caretaker** — verifies doses via QR scan, views eMAR chart, generates printable QR codes
+- **Patient** — receives reminders, confirms doses in-app
+- **Family** — monitors dose activity and notifications remotely
+
+---
 
 ## Tech Stack
 
 ### Frontend (Mobile App)
 - React 18 + TypeScript
 - Vite (build tool)
-- Capacitor (native wrapper)
+- Capacitor 5 (Android native wrapper)
 - Tailwind CSS
 - Zustand (state management)
-- Dexie (offline storage)
+- Dexie (offline storage / IndexedDB)
+- jsPDF + jspdf-autotable (MAR chart PDF export)
 
 ### Backend (API)
-- Cloudflare Workers (serverless)
+- Cloudflare Workers (serverless, auto-scaling)
 - Hono (web framework)
-- Neon Postgres (database)
-- JWT authentication
+- Neon Postgres (managed database)
+- JWT authentication (bcryptjs password hashing)
+- Zod (request validation)
 
-### Mobile Features
+### Native Features
 - QR code scanning (`@capacitor-community/barcode-scanner`)
-- Local notifications with custom sounds (`@capacitor/local-notifications`)
-- Text-to-speech (`@capacitor/text-to-speech`)
-- Offline support (IndexedDB)
+- Local notifications (`@capacitor/local-notifications`)
+- File system access (`@capacitor/filesystem`) — PDF export on Android
+
+---
 
 ## Project Structure
 
 ```
-securedose/
+SecureDose/
 ├── apps/
-│   ├── mobile/          # Capacitor mobile app
+│   ├── mobile/                  # React + Vite + Capacitor app
 │   │   ├── src/
-│   │   │   ├── screens/     # UI screens (by role)
-│   │   │   ├── services/    # Business logic
-│   │   │   ├── store/       # State management
-│   │   │   └── components/  # Reusable UI
-│   │   └── android/         # Android native project
-│   └── backend/         # Cloudflare Workers API
+│   │   │   ├── screens/
+│   │   │   │   ├── admin/       # Admin role screens
+│   │   │   │   ├── caretaker/   # Caretaker role screens
+│   │   │   │   ├── patient/     # Patient role screens
+│   │   │   │   └── family/      # Family role screens
+│   │   │   ├── services/        # api.ts, notifications, qrScanner
+│   │   │   ├── store/           # authStore (Zustand)
+│   │   │   ├── components/      # Button, Card, LoadingSpinner
+│   │   │   └── utils/           # generateMarPdf.ts
+│   │   └── android/             # Native Android project
+│   │
+│   └── backend/                 # Cloudflare Workers API
 │       ├── src/
-│       │   ├── routes/      # API endpoints
-│       │   ├── services/    # Business logic
-│       │   ├── middleware/  # Auth, rate limiting
-│       │   └── utils/       # Helpers
+│       │   ├── routes/          # auth, patients, schedules, verify, admin, ...
+│       │   ├── middleware/      # JWT auth, rate limiting
+│       │   └── utils/           # db, jwt, qr signing, validation
+│       └── wrangler.toml
+│
 ├── packages/
-│   ├── shared-types/    # TypeScript types
-│   └── db-schema/       # Database migrations
-└── docs/                # Documentation
+│   ├── shared-types/            # TypeScript types (shared)
+│   └── db-schema/               # Postgres migrations + seed data
+│
+└── docs/                        # Documentation
 ```
+
+---
 
 ## Quick Start
 
 ### Prerequisites
 - Node.js 18+
 - npm 9+
-- Android Studio (for mobile development)
+- PostgreSQL client (`psql`) for database setup
+- (Android builds only) Java 17 + Android Studio — Windows only
 
-### Installation
+### Install
 
 ```bash
-# Install dependencies
 npm install
+```
 
-# Setup environment variables
-cp .env.example .env
-# Edit .env with your configuration
+### Database Setup
 
-# Start development servers
+```bash
+export DATABASE_URL="postgresql://user:pass@host.neon.tech:5432/dbname"
+
+cd packages/db-schema
+psql $DATABASE_URL < migrations/001_initial_schema.sql
+psql $DATABASE_URL < migrations/002_notification_read_at.sql
+psql $DATABASE_URL < migrations/003_refresh_tokens.sql
+psql $DATABASE_URL < migrations/004_admin_role.sql
+psql $DATABASE_URL < migrations/005_patient_fields.sql
+psql $DATABASE_URL < seed.sql
+```
+
+### Start Development
+
+```bash
+# Backend (http://localhost:8787)
+npm run backend:dev
+
+# Mobile app in browser (http://localhost:5173)
+npm run mobile:dev
+
+# Or start everything at once
 npm run dev
 ```
 
-### Development Commands
+### Build the Android APK
 
-```bash
-# Start all dev servers (via Turborepo)
-npm run dev
+Run from **Windows CMD** (not WSL — build tools are Windows `.exe` binaries):
 
-# Mobile app only
-npm run mobile:dev          # Start web dev server (port 5173)
-npm run mobile:android      # Build and open in Android Studio
+```cmd
+cd C:\path\to\SecureDose
 
-# Backend only
-npm run backend:dev         # Start Wrangler dev server (port 8787)
-npm run backend:deploy      # Deploy to Cloudflare Workers
+REM Build web assets
+npm run build --workspace=apps/mobile
 
-# Testing
-npm run test                # Run all tests
-npm run lint                # Lint all packages
-```
-
-### Building the APK
-
-```bash
-cd apps/mobile
-npm run build
+REM Sync to Android project
+cd apps\mobile
 npx cap sync android
+
+REM Build APK
+set "JAVA_HOME=C:\Users\eunick\.jdks\ms-17.0.17"
+cd android
+gradlew.bat assembleDebug
 ```
 
-Then either:
-- Open Android Studio: `npx cap open android` and build from there
-- Or use Gradle: `cd android && ./gradlew assembleDebug`
+Output: `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`
 
-The APK will be at: `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`
+### Deploy Backend
 
-## Documentation
+From **Windows CMD** at the monorepo root:
 
-### Getting Started
-- [Quick Start Guide](docs/QUICK_START.md) - Get up and running in 15 minutes
-- [User Guide](docs/USER_GUIDE.md) - How to use the app (all roles)
+```cmd
+npm run backend:deploy
+```
 
-### Architecture
-- [Frontend Architecture](docs/FRONTEND_ARCHITECTURE.md) - Mobile app overview
-- [Backend Architecture](docs/BACKEND_ARCHITECTURE.md) - API and database overview
-- [CLAUDE.md](CLAUDE.md) - AI assistant guidance for this codebase
-
-### Development
-- [Implementation Checklist](IMPLEMENTATION_CHECKLIST.md) - Track development progress
-- [Debugging Log](docs/DEBUGGING_LOG.md) - Fixes and debugging history
-- [Session Handoff](SESSION_HANDOFF.md) - Session continuity notes
+---
 
 ## Test Users
 
-All users have password: `TestPassword123!`
+All accounts use password: `TestPassword123!`
 
 | Role | Email | Name |
 |------|-------|------|
+| Admin | admin@test.com | System Admin |
 | Caretaker | sarah.caretaker@test.com | Sarah Johnson |
+| Caretaker | mike.caretaker@test.com | Mike Davis |
 | Patient | john.patient@test.com | John Smith |
 | Family | emma.family@test.com | Emma Smith |
+| Family | robert.family@test.com | Robert Smith |
+
+> Admin accounts cannot be created through the app — use the database or the Admin > Manage Users screen to create caretaker/family accounts.
+
+---
 
 ## Current Status
 
 ### Completed
-- Project structure and configuration
-- TypeScript types and data models
-- Database schema and migrations
-- Basic UI screens (all roles)
-- QR scanner with camera permissions
-- Custom notification sounds (patient, caregiver dose, caregiver missed)
-- Backend API routes defined
-- APK build configuration
+- Four user roles: Admin, Caretaker, Patient, Family
+- Full JWT authentication with refresh tokens (bcrypt password hashing)
+- Database schema with 5 migrations applied to production
+- Admin dashboard with live stats
+- Admin patient management: create, edit, deactivate, caretaker transfer
+- Admin medication management: add (with schedule), remove
+- Admin user creation: caretaker and family via in-app modal
+- Admin 5-tab Patient Detail: Profile, Medications, eMAR, Calendar, Prescriptions
+- Admin caretaker and family member management, link request approval
+- Caretaker QR code scanning and dose verification
+- Caretaker QR code generation (printable)
+- Caretaker + Admin eMAR chart: 28-day grid with time-of-day sections
+- PDF export of MAR chart (web: browser download; Android: saves to Documents)
+- Patient dose confirmation and reminder notifications
+- Family activity log with history and calendar tabs
+- Family compliance monitoring with progress bar
+- Offline storage (IndexedDB via Dexie)
+- Cloudflare Workers backend fully deployed
+- Android APK build pipeline
 
-### In Progress
-- Backend route implementations
-- API integration with mobile app
-- QR code generation workflow
-- Push notification triggers
+### Known Limitations
+- Patient deactivation is a soft UI remove only (no `active` column on `patients` table yet)
+- No self-service password reset (contact admin)
+- Android PDF saves to Documents folder — no in-app PDF viewer
+- Compliance calculation uses UTC timezone (no per-patient timezone support)
+
+---
 
 ## Environment Variables
 
-### Backend (Cloudflare Workers)
+### Backend (`apps/backend/.dev.vars` for local / Cloudflare secrets for production)
 ```
 DATABASE_URL=postgresql://...
-JWT_SECRET=your-secret-key
-QR_SIGNING_SECRET=your-qr-secret
-FCM_SERVER_KEY=optional-for-push
+JWT_SECRET=<32+ char random string>
+QR_SIGNING_SECRET=<32+ char random string>
+FCM_SERVER_KEY=<optional, for push notifications>
+ALLOWED_ORIGINS=<optional, comma-separated>
 ```
 
-### Mobile App
+### Mobile (`apps/mobile/.env`)
 ```
-VITE_API_URL=http://localhost:8787
+VITE_API_URL=https://securedose-api.securedose.workers.dev
+# For local dev:
+# VITE_API_URL=http://localhost:8787
 ```
+
+---
+
+## Documentation
+
+| File | Description |
+|------|-------------|
+| [docs/QUICK_START.md](docs/QUICK_START.md) | Full setup and build guide |
+| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | How to use each role's features |
+| [docs/FRONTEND_ARCHITECTURE.md](docs/FRONTEND_ARCHITECTURE.md) | Screen structure, routing, components |
+| [docs/BACKEND_ARCHITECTURE.md](docs/BACKEND_ARCHITECTURE.md) | API routes, database schema, deployment |
+| [docs/DEBUGGING_LOG.md](docs/DEBUGGING_LOG.md) | Bug fixes and debugging history |
+| [docs/SESSION_LOG_2026-02-19.md](docs/SESSION_LOG_2026-02-19.md) | Session log — initial full build |
+| [docs/SESSION_LOG_2026-02-20.md](docs/SESSION_LOG_2026-02-20.md) | Session log — bug fixes + caretaker dropdown |
+| [CLAUDE.md](CLAUDE.md) | Guidance for Claude Code AI assistant |
+
+---
 
 ## License
 
-Private - All Rights Reserved
-
-## Contact
-
-For questions or support, please contact the development team.
+Private — All Rights Reserved
